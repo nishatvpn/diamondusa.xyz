@@ -319,7 +319,6 @@ group nogroup
 client-to-client
 username-as-common-name
 verify-client-cert none
-client-cert-not-required
 script-security 3
 client-connect /etc/openvpn/login/connect.sh
 client-disconnect /etc/openvpn/login/disconnect.sh
@@ -366,7 +365,6 @@ group nogroup
 client-to-client
 username-as-common-name
 verify-client-cert none
-client-cert-not-required
 script-security 3
 client-connect /etc/openvpn/login/connect.sh
 client-disconnect /etc/openvpn/login/disconnect.sh
@@ -413,19 +411,25 @@ cat <<'LENZ05' >/etc/openvpn/login/connect.sh
 . /etc/openvpn/login/config.sh
 
 ##set status online to user connected
-server_ip=$(curl -s https://api.ipify.org)
+server_ip=SERVERIP
 datenow=`date +"%Y-%m-%d %T"`
 mysql -u $USER -p$PASS -D $DB -h $HOST -e "UPDATE users SET is_connected='1', device_connected='1', active_address='$server_ip', active_date='$datenow' WHERE user_name='$common_name' "
+mysql -u $USER -p$PASS -D $DB -h $HOST -e "UPDATE server_list SET online=online+1 WHERE server_ip='$server_ip' "
 LENZ05
+
+sed -i "s|SERVERIP|$(curl -s https://api.ipify.org)|g" /etc/openvpn/login/connect.sh
 
 #TCP client-disconnect file
 cat <<'LENZ06' >/etc/openvpn/login/disconnect.sh
 #!/bin/bash
 
 . /etc/openvpn/login/config.sh
-
+server_ip=SERVERIP
 mysql -u $USER -p$PASS -D $DB -h $HOST -e "UPDATE users SET is_connected='0', active_address='', active_date='' WHERE user_name='$common_name' "
+mysql -u $USER -p$PASS -D $DB -h $HOST -e "UPDATE server_list SET online=online-1 WHERE server_ip='$server_ip' "
 LENZ06
+
+sed -i "s|SERVERIP|$(curl -s https://api.ipify.org)|g" /etc/openvpn/login/disconnect.sh
 
 cat << EOF > /etc/openvpn/easy-rsa/keys/ca.crt
 -----BEGIN CERTIFICATE-----
